@@ -7,3 +7,4 @@ opencv-python
 pandas
 xlsxwriter
 opencv-contrib-python-headless
+fuzzywuzzy
