@@ -14,13 +14,20 @@ st.write("Upload an invoice PDF and extract key information.")
 
 uploaded_file = st.file_uploader("Choose an invoice PDF", type=["pdf"])
 
+# List of US state abbreviations
+US_STATES = [
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS",
+    "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY",
+    "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV",
+    "WI", "WY"
+]
+
 def process_image(image):
     """
     Pre-process the image for better OCR accuracy.
     Applies grayscale, blur, and adaptive thresholding.
     """
     img_np = np.array(image)
-
     gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(
@@ -36,18 +43,22 @@ def extract_invoice_data(text):
     """
     Extract relevant information from OCR'd text using regular expressions.
     """
-    invoice_number = re.search(r"(?:Invoice|Bill)\s*#?\s*(\d+)", text)
+    invoice_number = re.search(r"(?:Invoice|Bill)\s*#?\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
     date_match = re.search(r"ORDER PLACED DATE[\n:]*\s*(\d{1,2}/\d{1,2}/\d{4})", text)
     total_match = re.search(r"TOTAL DUE[\n:]*\s*\$?(\d+[\.,]?\d*)", text)
-    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL)
+    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
 
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
     order_date = date_match.group(1).strip() if date_match else "Not found"
     total_due = f"${total_match.group(1)}" if total_match else "Not found"
-    customer = customer_match.group(1).strip() if customer_match else "Not found"
+    customer = re.sub(r'\n+', ' ', customer_match.group(1).strip()) if customer_match else "Not found"
 
-    state_match = re.search(r"(?:\b(?:[A-Z]{2})\b)", customer.upper())
-    state = state_match.group(0) if state_match else "Unknown"
+    # Try to extract a valid US state abbreviation from customer string
+    state = "Unknown"
+    for st_code in US_STATES:
+        if re.search(rf"\b{st_code}\b", customer.upper()):
+            state = st_code
+            break
 
     return invoice_number, order_date, customer, state, total_due
 
@@ -61,13 +72,23 @@ if uploaded_file:
         images = convert_from_bytes(pdf_bytes)
         full_text = ""
 
-        st.subheader("📄 Page Previews")
-        for i, image in enumerate(images):
-            st.image(image, caption=f"Page {i+1}", use_column_width=True)
+        st.subheader("📄 Page Preview")
 
-            processed_image = process_image(image)
-            page_text = pytesseract.image_to_string(processed_image)
-            full_text += page_text + "\n\n"
+        # Show and process only the first page by default
+        st.image(images[0], caption="Page 1", use_column_width=True)
+        processed_image = process_image(images[0])
+        custom_config = r'--oem 3 --psm 6'
+        page_text = pytesseract.image_to_string(processed_image, config=custom_config)
+        full_text += page_text + "\n\n"
+
+        # Optional: process and preview all remaining pages
+        if len(images) > 1:
+            if st.checkbox("Show and OCR all pages"):
+                for i, image in enumerate(images[1:], start=2):
+                    st.image(image, caption=f"Page {i}", use_column_width=True)
+                    processed_image = process_image(image)
+                    page_text = pytesseract.image_to_string(processed_image, config=custom_config)
+                    full_text += page_text + "\n\n"
 
         # Optional: show full OCR text
         with st.expander("📝 Show OCR Text (All Pages)"):
@@ -106,7 +127,6 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
-
 
 
 
