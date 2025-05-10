@@ -6,7 +6,7 @@ import pytesseract
 import re
 import pandas as pd
 from io import BytesIO
-import cv2
+import opencv-python-headless
 import numpy as np
 
 st.title("📄 Invoice Extractor")
