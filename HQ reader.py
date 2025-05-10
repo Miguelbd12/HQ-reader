@@ -15,6 +15,7 @@ st.write("Upload an invoice PDF and extract key information.")
 
 uploaded_file = st.file_uploader("Choose an invoice PDF", type=["pdf"])
 
+# List of US state abbreviations
 US_STATES = [
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS",
     "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY",
@@ -36,12 +37,38 @@ def process_image(image):
     return Image.fromarray(img_resized)
 
 def extract_invoice_data(text):
+    """
+    Extract relevant information from OCR'd text using regular expressions and fuzzy matching.
+    """
     invoice_number = re.search(r"(?:Invoice|Bill)\s*#?\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
     date_match = re.search(
         r"(May|June|July|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr)[a-z]*\.?\s+\d{1,2},\s+\d{4}(?:\s+\d{1,2}:\d{2}:\d{2}\s*(?:a\.m\.|p\.m\.)\s*[A-Z]{2,4})?",
         text,
         re.IGNORECASE
     )
+
+    # Updated total due regex to find values ending in US$
+    total_due_match = re.search(r"\$?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*US\$", text, re.IGNORECASE)
+
+    total_due = "Not found"
+    if total_due_match:
+        total_due = f"${total_due_match.group(1)}"
+    else:
+        # Fuzzy fallback search for amount ending in US$
+        total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT"]
+        lines = text.splitlines()
+        for line in lines:
+            for phrase in total_due_phrases:
+                if fuzz.partial_ratio(phrase.lower(), line.lower()) > 85:
+                    match = re.search(r"\$?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*US\$", line, re.IGNORECASE)
+                    if match:
+                        total_due = f"${match.group(1)}"
+                        break
+            if "US$" in line and total_due == "Not found":
+                match = re.search(r"\$?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*US\$", line, re.IGNORECASE)
+                if match:
+                    total_due = f"${match.group(1)}"
+                    break
 
     customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
     customer = "Not found"
@@ -60,17 +87,19 @@ def extract_invoice_data(text):
             state = st_code
             break
 
-    return invoice_number, order_date, customer, state
+    return invoice_number, order_date, customer, state, total_due
 
 if uploaded_file:
     st.write(f"**Uploaded File:** {uploaded_file.name}")
 
     try:
         pdf_bytes = uploaded_file.read()
+
         images = convert_from_bytes(pdf_bytes)
         full_text = ""
 
         st.subheader("📄 Page Preview")
+
         st.image(images[0], caption="Page 1", use_column_width=True)
         processed_image = process_image(images[0])
         custom_config = r'--oem 3 --psm 6'
@@ -88,29 +117,21 @@ if uploaded_file:
         with st.expander("📝 Show OCR Text (All Pages)"):
             st.text(full_text)
 
-        # Extract order total from last page
-        last_page_image = images[-1]
-        processed_last_page = process_image(last_page_image)
-        last_page_text = pytesseract.image_to_string(processed_last_page, config=custom_config)
-        dollar_amounts = re.findall(r"\$?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)", last_page_text)
-        order_total = f"${dollar_amounts[-1]}" if dollar_amounts else "Not found"
-
-        # Extract other invoice data
-        invoice_number, order_date, customer, state = extract_invoice_data(full_text)
+        invoice_number, order_date, customer, state, total_due = extract_invoice_data(full_text)
 
         st.subheader("🧾 Extracted Invoice Data")
         st.write(f"**Invoice Number:** {invoice_number}")
         st.write(f"**Order Placed Date:** {order_date}")
         st.write(f"**Customer:** {customer}")
         st.write(f"**State:** {state}")
-        st.write(f"**Order Total:** {order_total}")
+        st.write(f"**Total Due:** {total_due}")
 
         data = {
             "Invoice Number": [invoice_number],
             "Order Placed Date": [order_date],
             "Customer": [customer],
             "State": [state],
-            "Order Total": [order_total]
+            "Total Due": [total_due]
         }
         df = pd.DataFrame(data)
 
@@ -128,6 +149,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
