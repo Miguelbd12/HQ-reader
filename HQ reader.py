@@ -72,17 +72,23 @@ if uploaded_file:
         images = convert_from_bytes(pdf_bytes)
         full_text = ""
 
-        st.subheader("📄 Page Previews")
-        for i, image in enumerate(images):
-            st.image(image, caption=f"Page {i+1}", use_column_width=True)
+        st.subheader("📄 Page Preview")
 
-            processed_image = process_image(image)
+        # Show and process only the first page by default
+        st.image(images[0], caption="Page 1", use_column_width=True)
+        processed_image = process_image(images[0])
+        custom_config = r'--oem 3 --psm 6'
+        page_text = pytesseract.image_to_string(processed_image, config=custom_config)
+        full_text += page_text + "\n\n"
 
-            # Use custom Tesseract config
-            custom_config = r'--oem 3 --psm 6'
-            page_text = pytesseract.image_to_string(processed_image, config=custom_config)
-
-            full_text += page_text + "\n\n"
+        # Optional: process and preview all remaining pages
+        if len(images) > 1:
+            if st.checkbox("Show and OCR all pages"):
+                for i, image in enumerate(images[1:], start=2):
+                    st.image(image, caption=f"Page {i}", use_column_width=True)
+                    processed_image = process_image(image)
+                    page_text = pytesseract.image_to_string(processed_image, config=custom_config)
+                    full_text += page_text + "\n\n"
 
         # Optional: show full OCR text
         with st.expander("📝 Show OCR Text (All Pages)"):
@@ -121,6 +127,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
