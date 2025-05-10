@@ -1,1 +1,8 @@
-PdfReader
+streamlit
+PyPDF2
+pdf2image
+Pillow
+pytesseract
+opencv-python
+pandas
+xlsxwriter
