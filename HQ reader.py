@@ -15,7 +15,6 @@ st.write("Upload an invoice PDF and extract key information.")
 
 uploaded_file = st.file_uploader("Choose an invoice PDF", type=["pdf"])
 
-# List of US state abbreviations
 US_STATES = [
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS",
     "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY",
@@ -43,18 +42,6 @@ def extract_invoice_data(text):
         text,
         re.IGNORECASE
     )
-    
-    # Adjusted to look for "Order Total" instead of "Total Due"
-    total_match = re.search(r"(ORDER TOTAL|AMOUNT DUE|TOTAL|AMOUNT)\s*[:\s]*\$?(\d+[\.,]?\d*)", text, re.IGNORECASE)
-
-    order_total = "Not found"
-    if total_match:
-        order_total = f"${total_match.group(2)}"
-    else:
-        for phrase in ["ORDER TOTAL", "AMOUNT DUE", "TOTAL", "AMOUNT"]:
-            if fuzz.partial_ratio(phrase.lower(), text.lower()) > 80:
-                order_total = f"Approx: {phrase}"
-                break
 
     customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
     customer = "Not found"
@@ -73,7 +60,7 @@ def extract_invoice_data(text):
             state = st_code
             break
 
-    return invoice_number, order_date, customer, state, order_total
+    return invoice_number, order_date, customer, state
 
 if uploaded_file:
     st.write(f"**Uploaded File:** {uploaded_file.name}")
@@ -101,7 +88,15 @@ if uploaded_file:
         with st.expander("📝 Show OCR Text (All Pages)"):
             st.text(full_text)
 
-        invoice_number, order_date, customer, state, order_total = extract_invoice_data(full_text)
+        # Extract order total from last page
+        last_page_image = images[-1]
+        processed_last_page = process_image(last_page_image)
+        last_page_text = pytesseract.image_to_string(processed_last_page, config=custom_config)
+        dollar_amounts = re.findall(r"\$?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)", last_page_text)
+        order_total = f"${dollar_amounts[-1]}" if dollar_amounts else "Not found"
+
+        # Extract other invoice data
+        invoice_number, order_date, customer, state = extract_invoice_data(full_text)
 
         st.subheader("🧾 Extracted Invoice Data")
         st.write(f"**Invoice Number:** {invoice_number}")
@@ -133,6 +128,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
