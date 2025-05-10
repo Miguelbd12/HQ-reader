@@ -6,4 +6,4 @@ pytesseract
 opencv-python
 pandas
 xlsxwriter
-cv2
+opencv-python-headless
