@@ -21,23 +21,15 @@ def process_image(image):
     """
     img_np = np.array(image)
 
-    # Convert to grayscale
     gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-
-    # Apply Gaussian blur
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-
-    # Apply adaptive thresholding
     thresh = cv2.adaptiveThreshold(
         blurred, 255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY,
         11, 2
     )
-
-    # Resize for better OCR performance
     img_resized = cv2.resize(thresh, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
-
     return Image.fromarray(img_resized)
 
 def extract_invoice_data(text):
@@ -54,7 +46,6 @@ def extract_invoice_data(text):
     total_due = f"${total_match.group(1)}" if total_match else "Not found"
     customer = customer_match.group(1).strip() if customer_match else "Not found"
 
-    # Extract state from customer block
     state_match = re.search(r"(?:\b(?:[A-Z]{2})\b)", customer.upper())
     state = state_match.group(0) if state_match else "Unknown"
 
@@ -64,35 +55,34 @@ if uploaded_file:
     st.write(f"**Uploaded File:** {uploaded_file.name}")
 
     try:
-        # Read PDF content once
         pdf_bytes = uploaded_file.read()
 
-        # Convert first page to image
-        images = convert_from_bytes(pdf_bytes, first_page=1, last_page=1)
-        image = images[0]
-        st.image(image, caption="Invoice Preview", use_column_width=True)
+        # Convert all pages to images
+        images = convert_from_bytes(pdf_bytes)
+        full_text = ""
 
-        # Preprocess for OCR
-        processed_image = process_image(image)
+        st.subheader("📄 Page Previews")
+        for i, image in enumerate(images):
+            st.image(image, caption=f"Page {i+1}", use_column_width=True)
 
-        # OCR extraction
-        text = pytesseract.image_to_string(processed_image)
+            processed_image = process_image(image)
+            page_text = pytesseract.image_to_string(processed_image)
+            full_text += page_text + "\n\n"
 
-        # Optional: show raw OCR text
-        with st.expander("📝 Show OCR Text"):
-            st.text(text)
+        # Optional: show full OCR text
+        with st.expander("📝 Show OCR Text (All Pages)"):
+            st.text(full_text)
 
-        # Extract structured data
-        invoice_number, order_date, customer, state, total_due = extract_invoice_data(text)
+        # Extract data from combined OCR text
+        invoice_number, order_date, customer, state, total_due = extract_invoice_data(full_text)
 
-        st.subheader("Extracted Invoice Data")
+        st.subheader("🧾 Extracted Invoice Data")
         st.write(f"**Invoice Number:** {invoice_number}")
         st.write(f"**Order Placed Date:** {order_date}")
         st.write(f"**Customer:** {customer}")
         st.write(f"**State:** {state}")
         st.write(f"**Total Amount:** {total_due}")
 
-        # Data export
         data = {
             "Invoice Number": [invoice_number],
             "Order Placed Date": [order_date],
@@ -116,4 +106,5 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
