@@ -49,12 +49,12 @@ def extract_invoice_data(text):
         text,
         re.IGNORECASE
     )
-    total_match = re.search(r"TOTAL DUE[\n:]*\s*\$?(\d+[\.,]?\d*)", text)
+    total_due_match = re.search(r"TOTAL DUE[\n:]*\s*\$?(\d+[\.,]?\d*)", text)
     customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
 
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
     order_date = date_match.group(0).strip() if date_match else "Not found"
-    total_due = f"${total_match.group(1)}" if total_match else "Not found"
+    total_due = f"${total_due_match.group(1)}" if total_due_match else "Not found"
     customer = re.sub(r'\n+', ' ', customer_match.group(1).strip()) if customer_match else "Not found"
 
     # Try to extract a valid US state abbreviation from customer string
@@ -106,14 +106,14 @@ if uploaded_file:
         st.write(f"**Order Placed Date:** {order_date}")
         st.write(f"**Customer:** {customer}")
         st.write(f"**State:** {state}")
-        st.write(f"**Total Amount:** {total_due}")
+        st.write(f"**Total Due:** {total_due}")
 
         data = {
             "Invoice Number": [invoice_number],
             "Order Placed Date": [order_date],
             "Customer": [customer],
             "State": [state],
-            "Total Amount": [total_due]
+            "Total Due": [total_due]
         }
         df = pd.DataFrame(data)
 
@@ -131,6 +131,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
