@@ -98,7 +98,7 @@ if uploaded_file:
         buffer = BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=False, sheet_name='Invoice Data')
-            writer.save()
+            writer.close()
         
         # Download button for Excel file
         st.download_button(
