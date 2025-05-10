@@ -71,7 +71,90 @@ def extract_invoice_data(text):
     customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
     customer = "Not found"
     if customer_match:
-        customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())_
+        customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())  # Clean up newlines
+        # Remove unwanted phrases
+        customer = re.sub(r"PAY TO THE ORDER OF N/A", "", customer, flags=re.IGNORECASE)
+        customer = re.sub(r"GTINJ PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
+        customer = re.sub(r"PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
+
+    invoice_number = invoice_number.group(1) if invoice_number else "Not found"
+    order_date = date_match.group(0).strip() if date_match else "Not found"
+    
+    # Try to extract a valid US state abbreviation from customer string
+    state = "Unknown"
+    for st_code in US_STATES:
+        if re.search(rf"\b{st_code}\b", customer.upper()):
+            state = st_code
+            break
+
+    return invoice_number, order_date, customer, state, total_due
+
+if uploaded_file:
+    st.write(f"**Uploaded File:** {uploaded_file.name}")
+
+    try:
+        pdf_bytes = uploaded_file.read()
+
+        # Convert all pages to images
+        images = convert_from_bytes(pdf_bytes)
+        full_text = ""
+
+        st.subheader("📄 Page Preview")
+
+        # Show and process only the first page by default
+        st.image(images[0], caption="Page 1", use_column_width=True)
+        processed_image = process_image(images[0])
+        custom_config = r'--oem 3 --psm 6'
+        page_text = pytesseract.image_to_string(processed_image, config=custom_config)
+        full_text += page_text + "\n\n"
+
+        # Optional: process and preview all remaining pages
+        if len(images) > 1:
+            if st.checkbox("Show and OCR all pages"):
+                for i, image in enumerate(images[1:], start=2):
+                    st.image(image, caption=f"Page {i}", use_column_width=True)
+                    processed_image = process_image(image)
+                    page_text = pytesseract.image_to_string(processed_image, config=custom_config)
+                    full_text += page_text + "\n\n"
+
+        # Optional: show full OCR text
+        with st.expander("📝 Show OCR Text (All Pages)"):
+            st.text(full_text)
+
+        # Extract data from combined OCR text
+        invoice_number, order_date, customer, state, total_due = extract_invoice_data(full_text)
+
+        st.subheader("🧾 Extracted Invoice Data")
+        st.write(f"**Invoice Number:** {invoice_number}")
+        st.write(f"**Order Placed Date:** {order_date}")
+        st.write(f"**Customer:** {customer}")
+        st.write(f"**State:** {state}")
+        st.write(f"**Total Due:** {total_due}")
+
+        data = {
+            "Invoice Number": [invoice_number],
+            "Order Placed Date": [order_date],
+            "Customer": [customer],
+            "State": [state],
+            "Total Due": [total_due]
+        }
+        df = pd.DataFrame(data)
+
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Invoice Data')
+            writer.close()
+
+        st.download_button(
+            label="📥 Download as Excel",
+            data=buffer.getvalue(),
+            file_name="invoice_data.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+
 
 
 
