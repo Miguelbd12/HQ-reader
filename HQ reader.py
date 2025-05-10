@@ -34,19 +34,20 @@ def process_image(image):
 
 def extract_invoice_data(text):
     """
-    Extract relevant information from OCR'd text using regular expressions.
+    Extract relevant information from OCR'd text using improved regex.
     """
     invoice_number = re.search(r"(?:Invoice|Bill)\s*#?\s*(\d+)", text)
-    date_match = re.search(r"ORDER PLACED DATE[\n:]*\s*(\d{1,2}/\d{1,2}/\d{4})", text)
+    date_match = re.search(r"ORDER\s*PLACED.*?(\d{1,2}/\d{1,2}/\d{4})", text, re.IGNORECASE)
     total_match = re.search(r"TOTAL DUE[\n:]*\s*\$?(\d+[\.,]?\d*)", text)
-    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL)
+    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
 
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
     order_date = date_match.group(1).strip() if date_match else "Not found"
     total_due = f"${total_match.group(1)}" if total_match else "Not found"
     customer = customer_match.group(1).strip() if customer_match else "Not found"
 
-    state_match = re.search(r"(?:\b(?:[A-Z]{2})\b)", customer.upper())
+    # Search full OCR text for US state abbreviation
+    state_match = re.search(r"\b(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b", text.upper())
     state = state_match.group(0) if state_match else "Unknown"
 
     return invoice_number, order_date, customer, state, total_due
@@ -106,5 +107,6 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
