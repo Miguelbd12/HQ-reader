@@ -67,12 +67,18 @@ def extract_invoice_data(text):
                 total_due = f"Approx: {phrase}"  # This could be adjusted further to extract the amount
                 break
 
+    # Extract customer information while excluding unwanted phrases
     customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
+    customer = "Not found"
+    if customer_match:
+        customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())  # Clean up newlines
+        # Remove unwanted phrases
+        customer = re.sub(r"PAY TO THE ORDER OF N/A", "", customer, flags=re.IGNORECASE)
+        customer = re.sub(r"GTINJ PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
 
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
     order_date = date_match.group(0).strip() if date_match else "Not found"
-    customer = re.sub(r'\n+', ' ', customer_match.group(1).strip()) if customer_match else "Not found"
-
+    
     # Try to extract a valid US state abbreviation from customer string
     state = "Unknown"
     for st_code in US_STATES:
@@ -147,6 +153,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
