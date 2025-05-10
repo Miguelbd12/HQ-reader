@@ -21,33 +21,41 @@ def process_image(image):
     """
     img_np = np.array(image)
 
+    # Convert to grayscale
     gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
+
+    # Apply Gaussian blur
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # Apply adaptive thresholding
     thresh = cv2.adaptiveThreshold(
         blurred, 255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY,
         11, 2
     )
+
+    # Resize for better OCR performance
     img_resized = cv2.resize(thresh, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
+
     return Image.fromarray(img_resized)
 
 def extract_invoice_data(text):
     """
-    Extract relevant information from OCR'd text using improved regex.
+    Extract relevant information from OCR'd text using regular expressions.
     """
     invoice_number = re.search(r"(?:Invoice|Bill)\s*#?\s*(\d+)", text)
-    date_match = re.search(r"ORDER\s*PLACED.*?(\d{1,2}/\d{1,2}/\d{4})", text, re.IGNORECASE)
+    date_match = re.search(r"ORDER PLACED DATE[\n:]*\s*(\d{1,2}/\d{1,2}/\d{4})", text)
     total_match = re.search(r"TOTAL DUE[\n:]*\s*\$?(\d+[\.,]?\d*)", text)
-    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
+    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL)
 
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
     order_date = date_match.group(1).strip() if date_match else "Not found"
     total_due = f"${total_match.group(1)}" if total_match else "Not found"
     customer = customer_match.group(1).strip() if customer_match else "Not found"
 
-    # Search full OCR text for US state abbreviation
-    state_match = re.search(r"\b(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b", text.upper())
+    # Extract state from customer block
+    state_match = re.search(r"(?:\b(?:[A-Z]{2})\b)", customer.upper())
     state = state_match.group(0) if state_match else "Unknown"
 
     return invoice_number, order_date, customer, state, total_due
@@ -56,34 +64,35 @@ if uploaded_file:
     st.write(f"**Uploaded File:** {uploaded_file.name}")
 
     try:
+        # Read PDF content once
         pdf_bytes = uploaded_file.read()
 
-        # Convert all pages to images
-        images = convert_from_bytes(pdf_bytes)
-        full_text = ""
+        # Convert first page to image
+        images = convert_from_bytes(pdf_bytes, first_page=1, last_page=1)
+        image = images[0]
+        st.image(image, caption="Invoice Preview", use_column_width=True)
 
-        st.subheader("📄 Page Previews")
-        for i, image in enumerate(images):
-            st.image(image, caption=f"Page {i+1}", use_column_width=True)
+        # Preprocess for OCR
+        processed_image = process_image(image)
 
-            processed_image = process_image(image)
-            page_text = pytesseract.image_to_string(processed_image)
-            full_text += page_text + "\n\n"
+        # OCR extraction
+        text = pytesseract.image_to_string(processed_image)
 
-        # Optional: show full OCR text
-        with st.expander("📝 Show OCR Text (All Pages)"):
-            st.text(full_text)
+        # Optional: show raw OCR text
+        with st.expander("📝 Show OCR Text"):
+            st.text(text)
 
-        # Extract data from combined OCR text
-        invoice_number, order_date, customer, state, total_due = extract_invoice_data(full_text)
+        # Extract structured data
+        invoice_number, order_date, customer, state, total_due = extract_invoice_data(text)
 
-        st.subheader("🧾 Extracted Invoice Data")
+        st.subheader("Extracted Invoice Data")
         st.write(f"**Invoice Number:** {invoice_number}")
         st.write(f"**Order Placed Date:** {order_date}")
         st.write(f"**Customer:** {customer}")
         st.write(f"**State:** {state}")
         st.write(f"**Total Amount:** {total_due}")
 
+        # Data export
         data = {
             "Invoice Number": [invoice_number],
             "Order Placed Date": [order_date],
@@ -107,6 +116,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
