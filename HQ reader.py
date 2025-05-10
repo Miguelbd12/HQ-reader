@@ -44,12 +44,16 @@ def extract_invoice_data(text):
     Extract relevant information from OCR'd text using regular expressions.
     """
     invoice_number = re.search(r"(?:Invoice|Bill)\s*#?\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
-    date_match = re.search(r"ORDER PLACED DATE[\n:]*\s*(\d{1,2}/\d{1,2}/\d{4})", text)
+    date_match = re.search(
+        r"(May|June|July|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr)[a-z]*\.?\s+\d{1,2},\s+\d{4}(?:\s+\d{1,2}:\d{2}:\d{2}\s*(?:a\.m\.|p\.m\.)\s*[A-Z]{2,4})?",
+        text,
+        re.IGNORECASE
+    )
     total_match = re.search(r"TOTAL DUE[\n:]*\s*\$?(\d+[\.,]?\d*)", text)
     customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
 
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
-    order_date = date_match.group(1).strip() if date_match else "Not found"
+    order_date = date_match.group(0).strip() if date_match else "Not found"
     total_due = f"${total_match.group(1)}" if total_match else "Not found"
     customer = re.sub(r'\n+', ' ', customer_match.group(1).strip()) if customer_match else "Not found"
 
@@ -127,6 +131,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
