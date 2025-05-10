@@ -8,6 +8,7 @@ import pandas as pd
 from io import BytesIO
 import cv2
 import numpy as np
+from fuzzywuzzy import fuzz
 
 st.title("📄 Invoice Extractor")
 st.write("Upload an invoice PDF and extract key information.")
@@ -41,7 +42,7 @@ def process_image(image):
 
 def extract_invoice_data(text):
     """
-    Extract relevant information from OCR'd text using regular expressions.
+    Extract relevant information from OCR'd text using regular expressions and fuzzy matching.
     """
     invoice_number = re.search(r"(?:Invoice|Bill)\s*#?\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
     date_match = re.search(
@@ -49,12 +50,27 @@ def extract_invoice_data(text):
         text,
         re.IGNORECASE
     )
-    total_due_match = re.search(r"TOTAL DUE[\n:]*\s*\$?(\d+[\.,]?\d*)", text)
+    
+    # Flexible regex for "Total Due" that accounts for multiple variations of keywords
+    total_due_match = re.search(r"(TOTAL DUE|AMOUNT DUE|TOTAL|AMOUNT)\s*[:\s]*\$?(\d+[\.,]?\d*)", text, re.IGNORECASE)
+    
+    # If we don't find a match, we can apply fuzzy matching to look for similar text
+    total_due = "Not found"
+    if total_due_match:
+        total_due = f"${total_due_match.group(2)}"
+    else:
+        # Fuzzy matching on potential phrases like "Total Due", "Amount Due"
+        total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT"]
+        for phrase in total_due_phrases:
+            match_score = fuzz.partial_ratio(phrase.lower(), text.lower())
+            if match_score > 80:  # Threshold for fuzzy matching
+                total_due = f"Approx: {phrase}"  # This could be adjusted further to extract the amount
+                break
+
     customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
 
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
     order_date = date_match.group(0).strip() if date_match else "Not found"
-    total_due = f"${total_due_match.group(1)}" if total_due_match else "Not found"
     customer = re.sub(r'\n+', ' ', customer_match.group(1).strip()) if customer_match else "Not found"
 
     # Try to extract a valid US state abbreviation from customer string
@@ -131,6 +147,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
