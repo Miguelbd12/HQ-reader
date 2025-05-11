@@ -27,13 +27,14 @@ def process_image(image):
     """
     Pre-process the image for better OCR accuracy.
     Applies grayscale, blur, and adaptive thresholding.
-    Focuses on the top third of the image for extracting the total amount.
+    Focuses on the region below the "Order Placed Date" to extract the total amount.
     """
     img_np = np.array(image)
     
-    # Crop the image to focus on the first third (top portion) of the image
+    # Crop the image to focus on the region below the "Order Placed Date" (customizable based on the invoice layout)
     height, width = img_np.shape[:2]
-    cropped_img = img_np[:height//3, :]  # Keep only the top third of the image
+    crop_top = height // 3  # Start cropping from the bottom third
+    cropped_img = img_np[crop_top:height, :]  # Focus on the lower portion of the image
     
     # Pre-process the cropped portion
     gray = cv2.cvtColor(cropped_img, cv2.COLOR_BGR2GRAY)
@@ -139,31 +140,8 @@ if uploaded_file:
         st.write(f"**Order Placed Date:** {order_date}")
         st.write(f"**Customer:** {customer}")
         st.write(f"**State:** {state}")
-        st.write(f"**Total Due:** {total_due}")
+        st.write(f"
 
-        data = {
-            "Invoice Number": [invoice_number],
-            "Order Placed Date": [order_date],
-            "Customer": [customer],
-            "State": [state],
-            "Total Due": [total_due]
-        }
-        df = pd.DataFrame(data)
-
-        buffer = BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Invoice Data')
-            writer.close()
-
-        st.download_button(
-            label="📥 Download as Excel",
-            data=buffer.getvalue(),
-            file_name="invoice_data.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
 
 
 
