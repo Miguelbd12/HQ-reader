@@ -100,6 +100,9 @@ def extract_invoice_data(text):
         # Remove "GTIMA" and "GTIIL" from the customer string
         customer = re.sub(r"GTIMA", "", customer, flags=re.IGNORECASE)  # Removing "GTIMA" (case-insensitive)
         customer = re.sub(r"GTIIL", "", customer, flags=re.IGNORECASE)  # Removing "GTIIL" (case-insensitive)
+        
+        # Remove "GTI Nevada LLC . NIA"
+        customer = re.sub(r"GTI Nevada LLC\s*\.\s*NIA", "", customer, flags=re.IGNORECASE)  # Removing the specified text
 
     st.write(f"**Raw Customer Data:** {customer}")
 
