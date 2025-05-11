@@ -129,3 +129,40 @@ if uploaded_file:
                     st.image(image, caption=f"Page {i}", use_column_width=True)
                     processed_image = process_image(image)
                     page_text = pytesseract.image_to_string(processed_image, config=custom_config)
+                    full_text += page_text + "\n\n"
+
+        with st.expander("📝 Show OCR Text (All Pages)"):
+            st.text(full_text)
+
+        invoice_number, order_date, customer, state, total_due = extract_invoice_data(full_text)
+
+        st.subheader("🧾 Extracted Invoice Data")
+        st.write(f"**Invoice Number:** {invoice_number}")
+        st.write(f"**Order Placed Date:** {order_date}")
+        st.write(f"**Customer:** {customer}")
+        st.write(f"**State:** {state}")
+        st.write(f"**Total Due:** {total_due}")
+
+        data = {
+            "Invoice Number": [invoice_number],
+            "Order Placed Date": [order_date],
+            "Customer": [customer],
+            "State": [state],
+            "Total Due": [total_due]
+        }
+        df = pd.DataFrame(data)
+
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Invoice Data')
+            writer.close()
+
+        st.download_button(
+            label="📥 Download as Excel",
+            data=buffer.getvalue(),
+            file_name="invoice_data.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
