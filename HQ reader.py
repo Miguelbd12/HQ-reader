@@ -58,13 +58,13 @@ def extract_invoice_data(text):
         re.IGNORECASE
     )
     
-    # Update total_due_match to handle the new format
-    total_due_match = re.search(r"TOTAL:\s*(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)\s*uss", text, re.IGNORECASE)
+    # Update regex for Total Due to match the format "1.400,00 uss"
+    total_due_match = re.search(r"(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)\s*uss", text, re.IGNORECASE)
     
     total_due = "Not found"
     if total_due_match:
         # Clean the total amount by replacing the commas and converting it to float
-        total_due = total_due_match.group(1).replace(",", "").replace(".", "")  # Remove commas and periods
+        total_due = total_due_match.group(1).replace(",", "")  # Remove commas
         total_due = f"${total_due}"  # You can adjust the formatting here if necessary
     else:
         total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT", "TOTAL INVOICE", "BALANCE DUE", "OUTSTANDING"]
@@ -156,5 +156,6 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
