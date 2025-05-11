@@ -40,6 +40,24 @@ def process_image(image):
     img_resized = cv2.resize(thresh, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
     return Image.fromarray(img_resized)
 
+def extract_state(text, customer):
+    """
+    Try to extract a valid US state abbreviation from customer string or OCR text.
+    """
+    state = "Unknown"
+    for st_code in US_STATES:
+        if re.search(rf"\b{st_code}\b", customer.upper()):
+            state = st_code
+            break
+
+    if state == "Unknown":
+        for st_code in US_STATES:
+            if re.search(rf"\b{st_code}\b", text.upper()):
+                state = st_code
+                break
+    
+    return state
+
 def extract_invoice_data(text):
     """
     Extract relevant information from OCR'd text using regular expressions and fuzzy matching.
@@ -51,53 +69,35 @@ def extract_invoice_data(text):
         re.IGNORECASE
     )
     
-    # Flexible regex for "Total Due" that accounts for multiple variations of keywords
     total_due_match = re.search(r"(TOTAL DUE|AMOUNT DUE|TOTAL|AMOUNT)\s*[:\s]*\$?(\d+[\.,]?\d*)", text, re.IGNORECASE)
     
-    # If we don't find a match, we can apply fuzzy matching to look for similar text
     total_due = "Not found"
     if total_due_match:
         total_due = f"${total_due_match.group(2)}"
     else:
-        # Fuzzy matching on potential phrases like "Total Due", "Amount Due"
         total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT"]
         for phrase in total_due_phrases:
             match_score = fuzz.partial_ratio(phrase.lower(), text.lower())
-            if match_score > 80:  # Threshold for fuzzy matching
-                total_due = f"Approx: {phrase}"  # This could be adjusted further to extract the amount
+            if match_score > 80:  
+                total_due = f"Approx: {phrase}"  
                 break
 
-    # Extract customer information while excluding unwanted phrases
     customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
     customer = "Not found"
     if customer_match:
-        customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())  # Clean up newlines
-        # Remove unwanted phrases
+        customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())  
         customer = re.sub(r"PAY TO THE ORDER OF N/A", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTINJ PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTHL", "", customer, flags=re.IGNORECASE)
-        # Remove the unwanted part: "GTI Nevada LLC . N/A"
         customer = re.sub(r"GTI Nevada LLC\s*\.\s*N/A", "", customer, flags=re.IGNORECASE)
-        # Remove "GTIHL"
+        
+        # Remove "GTIHL" from customer data
         customer = re.sub(r"GTIHL", "", customer, flags=re.IGNORECASE)
 
-    # Debugging: Show raw customer data
     st.write(f"**Raw Customer Data:** {customer}")
 
-    # Try to extract a valid US state abbreviation from customer string
-    state = "Unknown"
-    for st_code in US_STATES:
-        if re.search(rf"\b{st_code}\b", customer.upper()):
-            state = st_code
-            break
-
-    # If the state is not found in the customer string, check the entire OCR text
-    if state == "Unknown":
-        for st_code in US_STATES:
-            if re.search(rf"\b{st_code}\b", text.upper()):
-                state = st_code
-                break
+    state = extract_state(text, customer)
 
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
     order_date = date_match.group(0).strip() if date_match else "Not found"
@@ -169,6 +169,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
