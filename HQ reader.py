@@ -27,9 +27,16 @@ def process_image(image):
     """
     Pre-process the image for better OCR accuracy.
     Applies grayscale, blur, and adaptive thresholding.
+    Focuses on the top third of the image for extracting the total amount.
     """
     img_np = np.array(image)
-    gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
+    
+    # Crop the image to focus on the first third (top portion) of the image
+    height, width = img_np.shape[:2]
+    cropped_img = img_np[:height//3, :]  # Keep only the top third of the image
+    
+    # Pre-process the cropped portion
+    gray = cv2.cvtColor(cropped_img, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(
         blurred, 255,
@@ -38,6 +45,7 @@ def process_image(image):
         11, 2
     )
     img_resized = cv2.resize(thresh, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
+    
     return Image.fromarray(img_resized)
 
 def extract_invoice_data(text):
@@ -76,15 +84,12 @@ def extract_invoice_data(text):
         customer = re.sub(r"PAY TO THE ORDER OF N/A", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTINJ PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"GTHL", "", customer, flags=re.IGNORECASE)
-        # Remove the unwanted part: "GTI Nevada LLC . N/A"
-        customer = re.sub(r"GTI Nevada LLC\s*\.\s*N/A", "", customer, flags=re.IGNORECASE)
-        # Remove "GTIHL"
+        customer = re.sub(r"GTI Nevada LLC . N/A", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTIHL", "", customer, flags=re.IGNORECASE)
 
-    # Debugging: Show raw customer data
-    st.write(f"**Raw Customer Data:** {customer}")
-
+    invoice_number = invoice_number.group(1) if invoice_number else "Not found"
+    order_date = date_match.group(0).strip() if date_match else "Not found"
+    
     # Try to extract a valid US state abbreviation from customer string
     state = "Unknown"
     for st_code in US_STATES:
@@ -92,16 +97,6 @@ def extract_invoice_data(text):
             state = st_code
             break
 
-    # If the state is not found in the customer string, check the entire OCR text
-    if state == "Unknown":
-        for st_code in US_STATES:
-            if re.search(rf"\b{st_code}\b", text.upper()):
-                state = st_code
-                break
-
-    invoice_number = invoice_number.group(1) if invoice_number else "Not found"
-    order_date = date_match.group(0).strip() if date_match else "Not found"
-    
     return invoice_number, order_date, customer, state, total_due
 
 if uploaded_file:
@@ -169,6 +164,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
