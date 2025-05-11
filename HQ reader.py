@@ -73,7 +73,7 @@ def extract_invoice_data(text):
     )
     
     # Improved regex for total amount due, covering more variations
-    total_due_match = re.search(r"(TOTAL DUE|AMOUNT DUE|TOTAL|AMOUNT|TOTAL INVOICE|BALANCE DUE|OUTSTANDING)\s*[:\s]*\$?(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)", text, re.IGNORECASE)
+    total_due_match = re.search(r"(TOTAL DUE|AMOUNT DUE|AMOUNT|TOTAL INVOICE|BALANCE DUE|OUTSTANDING)\s*[:\s]*\$?(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)", text, re.IGNORECASE)
     
     # If regex doesn't find the total, apply fuzzy matching
     total_due = "Not found"
