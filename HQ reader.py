@@ -9,8 +9,8 @@ from io import BytesIO
 import cv2
 import numpy as np
 from fuzzywuzzy import fuzz
+import pytz
 from datetime import datetime
-import pytz  # Import pytz for timezone handling
 
 st.title("📄 Invoice Extractor")
 st.write("Upload an invoice PDF and extract key information.")
@@ -97,8 +97,9 @@ def extract_invoice_data(text):
         customer = re.sub(r"GTI Nevada LLC\s*\.\s*N/A", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTIHL", "", customer, flags=re.IGNORECASE)
         
-        # Remove "GTIMA" from the customer string
+        # Remove "GTIMA" and "GTIIL" from the customer string
         customer = re.sub(r"GTIMA", "", customer, flags=re.IGNORECASE)  # Removing "GTIMA" (case-insensitive)
+        customer = re.sub(r"GTIIL", "", customer, flags=re.IGNORECASE)  # Removing "GTIIL" (case-insensitive)
 
     st.write(f"**Raw Customer Data:** {customer}")
 
@@ -127,44 +128,8 @@ if uploaded_file:
                 for i, image in enumerate(images[1:], start=2):
                     st.image(image, caption=f"Page {i}", use_column_width=True)
                     processed_image = process_image(image)
-                    page_text = pytesseract.image_to_string(processed_image, config=custom_config)
-                    full_text += page_text + "\n\n"
+                    page_text = pytesseract.image_to_string(processed_image,
 
-        with st.expander("📝 Show OCR Text (All Pages)"):
-            st.text(full_text)
-
-        invoice_number, order_date, customer, state, total_due = extract_invoice_data(full_text)
-
-        st.subheader("🧾 Extracted Invoice Data")
-        st.write(f"**Invoice Number:** {invoice_number}")
-        st.write(f"**Order Placed Date (PST):** {order_date}")
-        st.write(f"**Customer:** {customer}")
-        st.write(f"**State:** {state}")
-        st.write(f"**Total Due:** {total_due}")
-
-        data = {
-            "Invoice Number": [invoice_number],
-            "Order Placed Date": [order_date],
-            "Customer": [customer],
-            "State": [state],
-            "Total Due": [total_due]
-        }
-        df = pd.DataFrame(data)
-
-        buffer = BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Invoice Data')
-            writer.close()
-
-        st.download_button(
-            label="📥 Download as Excel",
-            data=buffer.getvalue(),
-            file_name="invoice_data.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
 
 
 
