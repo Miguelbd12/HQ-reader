@@ -66,12 +66,12 @@ def extract_invoice_data(text):
         # Clean the total amount by removing "uss" and reformatting the number
         total_amount = total_due_match.group(1)  # "1.400,00"
         
-        # Remove the periods (thousands separator) and replace the comma with a decimal separator
+        # Remove the periods (thousands separator) and replace the comma with a dot for decimal separator
         total_amount = total_amount.replace(".", "")  # Remove thousands separator
-        total_amount = total_amount.replace(",", "")  # Remove decimal part (or keep it if needed)
+        total_amount = total_amount.replace(",", ".")  # Replace the comma with a dot for decimal
 
-        # Format the amount to include a comma as a thousands separator
-        total_due = "{:,}".format(int(total_amount))  # Convert it to integer and add commas for thousands
+        # Format the amount to include a comma as a thousands separator and ensure two decimal places
+        total_due = "{:,.2f}".format(float(total_amount))  # Convert it to float and format with commas
 
     else:
         total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT", "TOTAL INVOICE", "BALANCE DUE", "OUTSTANDING"]
@@ -164,9 +164,6 @@ if uploaded_file:
     except Exception as e:
         st.error(f"An error occurred: {e}")
 
-
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
 
 
 
