@@ -10,7 +10,6 @@ import cv2
 import numpy as np
 from fuzzywuzzy import fuzz
 from datetime import datetime
-import pytz  # Import pytz for timezone handling
 
 st.title("📄 Invoice Extractor")
 st.write("Upload an invoice PDF and extract key information.")
@@ -19,7 +18,7 @@ uploaded_file = st.file_uploader("Choose an invoice PDF", type=["pdf"])
 
 # List of US state abbreviations
 US_STATES = [
-    "AL", "AK", "AZ", "AR", "CA", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS",
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS",
     "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY",
     "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV",
     "WI", "WY"
@@ -54,9 +53,8 @@ def extract_state(text, customer):
 def extract_invoice_data(text):
     invoice_number = re.search(r"(?:Invoice\s*(?:No\.?|#)?|Bill\s*#?)\s*[:\-]?\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
     
-    # Using the current date and time for "Order Placed Date" in PST
-    pst = pytz.timezone('US/Pacific')
-    order_date = datetime.now(pytz.utc).astimezone(pst).strftime("%Y-%m-%d %H:%M:%S")  # Convert to PST and format as string
+    # Using the current date and time for "Order Placed Date"
+    order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Get current date and time in format "YYYY-MM-DD HH:MM:SS"
     
     # Updated regex for Total Due to match the format "1.400,00 uss"
     total_due_match = re.search(r"(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)\s*uss", text, re.IGNORECASE)
@@ -137,7 +135,7 @@ if uploaded_file:
 
         st.subheader("🧾 Extracted Invoice Data")
         st.write(f"**Invoice Number:** {invoice_number}")
-        st.write(f"**Order Placed Date (PST):** {order_date}")
+        st.write(f"**Order Placed Date:** {order_date}")
         st.write(f"**Customer:** {customer}")
         st.write(f"**State:** {state}")
         st.write(f"**Total Due:** {total_due}")
