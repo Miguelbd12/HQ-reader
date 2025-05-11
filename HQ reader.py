@@ -140,7 +140,31 @@ if uploaded_file:
         st.write(f"**Order Placed Date:** {order_date}")
         st.write(f"**Customer:** {customer}")
         st.write(f"**State:** {state}")
-        st.write(f"
+        st.write(f"**Total Due:** {total_due}")
+
+        data = {
+            "Invoice Number": [invoice_number],
+            "Order Placed Date": [order_date],
+            "Customer": [customer],
+            "State": [state],
+            "Total Due": [total_due]
+        }
+        df = pd.DataFrame(data)
+
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Invoice Data')
+            writer.close()
+
+        st.download_button(
+            label="📥 Download as Excel",
+            data=buffer.getvalue(),
+            file_name="invoice_data.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
 
 
 
