@@ -128,7 +128,8 @@ if uploaded_file:
                 for i, image in enumerate(images[1:], start=2):
                     st.image(image, caption=f"Page {i}", use_column_width=True)
                     processed_image = process_image(image)
-                    page_text = pytesseract.image_to_string(processed_image,
+                    page_text = pytesseract.image_to_string(processed_image, config=custom_config)
+
 
 
 
