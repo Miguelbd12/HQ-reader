@@ -24,6 +24,10 @@ US_STATES = [
 ]
 
 def process_image(image):
+    """
+    Pre-process the image for better OCR accuracy.
+    Applies grayscale, blur, and adaptive thresholding.
+    """
     img_np = np.array(image)
     gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -46,46 +50,54 @@ def extract_invoice_data(text):
         text,
         re.IGNORECASE
     )
-
-    total_due_match = re.search(r"\$?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*US\$", text, re.IGNORECASE)
-
+    
+    # Flexible regex for "Total Due" that accounts for multiple variations of keywords
+    total_due_match = re.search(r"(TOTAL DUE|AMOUNT DUE|TOTAL|AMOUNT)\s*[:\s]*\$?(\d+[\.,]?\d*)", text, re.IGNORECASE)
+    
+    # If we don't find a match, we can apply fuzzy matching to look for similar text
     total_due = "Not found"
     if total_due_match:
-        total_due = f"${total_due_match.group(1)}"
+        total_due = f"${total_due_match.group(2)}"
     else:
+        # Fuzzy matching on potential phrases like "Total Due", "Amount Due"
         total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT"]
-        lines = text.splitlines()
-        for line in lines:
-            for phrase in total_due_phrases:
-                if fuzz.partial_ratio(phrase.lower(), line.lower()) > 85:
-                    match = re.search(r"\$?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*US\$", line, re.IGNORECASE)
-                    if match:
-                        total_due = f"${match.group(1)}"
-                        break
-            if "US$" in line and total_due == "Not found":
-                match = re.search(r"\$?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*US\$", line, re.IGNORECASE)
-                if match:
-                    total_due = f"${match.group(1)}"
-                    break
+        for phrase in total_due_phrases:
+            match_score = fuzz.partial_ratio(phrase.lower(), text.lower())
+            if match_score > 80:  # Threshold for fuzzy matching
+                total_due = f"Approx: {phrase}"  # This could be adjusted further to extract the amount
+                break
 
+    # Extract customer information while excluding unwanted phrases
     customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
     customer = "Not found"
     if customer_match:
-        customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())
+        customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())  # Clean up newlines
+        # Remove unwanted phrases
         customer = re.sub(r"PAY TO THE ORDER OF N/A", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTINJ PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"GTHL", "", customer, flags=re.IGNORECASE)  # Newly added line
+        customer = re.sub(r"GTHL", "", customer, flags=re.IGNORECASE)
 
-    invoice_number = invoice_number.group(1) if invoice_number else "Not found"
-    order_date = date_match.group(0).strip() if date_match else "Not found"
+    # Debugging: Show raw customer data
+    st.write(f"**Raw Customer Data:** {customer}")
 
+    # Try to extract a valid US state abbreviation from customer string
     state = "Unknown"
     for st_code in US_STATES:
         if re.search(rf"\b{st_code}\b", customer.upper()):
             state = st_code
             break
 
+    # If the state is not found in the customer string, check the entire OCR text
+    if state == "Unknown":
+        for st_code in US_STATES:
+            if re.search(rf"\b{st_code}\b", text.upper()):
+                state = st_code
+                break
+
+    invoice_number = invoice_number.group(1) if invoice_number else "Not found"
+    order_date = date_match.group(0).strip() if date_match else "Not found"
+    
     return invoice_number, order_date, customer, state, total_due
 
 if uploaded_file:
@@ -93,17 +105,21 @@ if uploaded_file:
 
     try:
         pdf_bytes = uploaded_file.read()
+
+        # Convert all pages to images
         images = convert_from_bytes(pdf_bytes)
         full_text = ""
 
         st.subheader("📄 Page Preview")
 
+        # Show and process only the first page by default
         st.image(images[0], caption="Page 1", use_column_width=True)
         processed_image = process_image(images[0])
         custom_config = r'--oem 3 --psm 6'
         page_text = pytesseract.image_to_string(processed_image, config=custom_config)
         full_text += page_text + "\n\n"
 
+        # Optional: process and preview all remaining pages
         if len(images) > 1:
             if st.checkbox("Show and OCR all pages"):
                 for i, image in enumerate(images[1:], start=2):
@@ -112,9 +128,11 @@ if uploaded_file:
                     page_text = pytesseract.image_to_string(processed_image, config=custom_config)
                     full_text += page_text + "\n\n"
 
+        # Optional: show full OCR text
         with st.expander("📝 Show OCR Text (All Pages)"):
             st.text(full_text)
 
+        # Extract data from combined OCR text
         invoice_number, order_date, customer, state, total_due = extract_invoice_data(full_text)
 
         st.subheader("🧾 Extracted Invoice Data")
@@ -147,6 +165,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
