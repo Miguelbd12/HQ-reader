@@ -129,11 +129,3 @@ if uploaded_file:
                     st.image(image, caption=f"Page {i}", use_column_width=True)
                     processed_image = process_image(image)
                     page_text = pytesseract.image_to_string(processed_image, config=custom_config)
-
-
-
-
-
-
-
-
