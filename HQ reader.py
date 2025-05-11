@@ -9,6 +9,7 @@ from io import BytesIO
 import cv2
 import numpy as np
 from fuzzywuzzy import fuzz
+from datetime import datetime  # Importing the datetime module
 
 st.title("📄 Invoice Extractor")
 st.write("Upload an invoice PDF and extract key information.")
@@ -52,11 +53,8 @@ def extract_state(text, customer):
 def extract_invoice_data(text):
     invoice_number = re.search(r"(?:Invoice\s*(?:No\.?|#)?|Bill\s*#?)\s*[:\-]?\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
     
-    date_match = re.search(
-        r"(Abr\.|May|June|July|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr)[a-z]*\.?\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}\s*(a\.m\.|p\.m\.)",
-        text,
-        re.IGNORECASE
-    )
+    # Using the current date and time for "Order Placed Date"
+    order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Get current date and time in format "YYYY-MM-DD HH:MM:SS"
     
     # Updated regex for Total Due to match the format "1.400,00 uss"
     total_due_match = re.search(r"(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)\s*uss", text, re.IGNORECASE)
@@ -101,7 +99,6 @@ def extract_invoice_data(text):
 
     state = extract_state(text, customer)
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
-    order_date = date_match.group(0).strip() if date_match else "Not found"
     
     return invoice_number, order_date, customer, state, total_due
 
