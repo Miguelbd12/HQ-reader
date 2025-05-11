@@ -50,57 +50,68 @@ def extract_state(text, customer):
     return state
 
 def extract_invoice_data(text):
-    # Invoice number extraction
+    # Invoice number extraction - handles both Draft Invoice # and Invoice #
     invoice_number = re.search(r"(?:Invoice\s*#|Draft Invoice\s*#)\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
     
-    # Date extraction
+    # Date extraction - handles both EDT and CDT timezones
     date_match = re.search(
-        r"(?:ORDER PLACED DATE|Date)\s*:\s*(.*?\d{1,2}:\d{2}:\d{2}\s*(?:a\.m\.|p\.m\.|AM|PM)?)",
+        r"(?:ORDER PLACED DATE|Date)\s*:\s*(.*?\d{1,2}:\d{2}:\d{2}\s*(?:a\.m\.|p\.m\.|AM|PM)?\s*[A-Z]{2,4})",
         text,
         re.IGNORECASE
     )
     
-    # Improved total amount detection for this specific format
+    # Improved total amount detection with multiple fallbacks
     total_due = "Not found"
     
-    # Look for "ORDER TOTAL" pattern which appears in this invoice
+    # 1. First try ORDER TOTAL (appears at bottom of invoice)
     order_total_match = re.search(
         r"ORDER TOTAL\s*:\s*([\d\.,]+)\s*US\$",
         text,
         re.IGNORECASE
     )
     
-    if order_total_match:
-        amount = order_total_match.group(1).replace('.', '').replace(',', '.')
-        try:
-            total_due = f"${float(amount):,.2f}"
-        except ValueError:
-            pass
-    
-    # Fallback to look for "TOTAL DUE" if "ORDER TOTAL" not found
-    if total_due == "Not found":
-        total_due_match = re.search(
+    # 2. Then try TOTAL DUE (appears at top of invoice)
+    if not order_total_match:
+        order_total_match = re.search(
             r"TOTAL DUE\s*:\s*([\d\.,]+)\s*US\$",
             text,
             re.IGNORECASE
         )
-        if total_due_match:
-            amount = total_due_match.group(1).replace('.', '').replace(',', '.')
-            try:
-                total_due = f"${float(amount):,.2f}"
-            except ValueError:
-                pass
+    
+    # 3. Then look for CANNABIS > PRE-PACK FLOWER TOTAL
+    if not order_total_match:
+        order_total_match = re.search(
+            r"CANNABIS > PRE\-PACK FLOWER\s*([\d\.,]+)\s*US\$\s*TOTAL:",
+            text,
+            re.IGNORECASE
+        )
+    
+    if order_total_match:
+        amount = order_total_match.group(1)
+        # Handle European-style numbers (43.518,62) and American-style (43,518.62)
+        if '.' in amount and ',' in amount:  # European style
+            amount = amount.replace('.', '').replace(',', '.')
+        elif ',' in amount:  # American style with commas
+            amount = amount.replace(',', '')
+        try:
+            total_due = f"${float(amount):,.2f}"
+        except ValueError:
+            pass
     
     # Final fallback - look for amounts near total keywords
     if total_due == "Not found":
         lines = text.split('\n')
         for i, line in enumerate(lines):
             line_lower = line.lower()
-            if any(keyword in line_lower for keyword in ['total due', 'order total', 'amount due', 'invoice total']):
+            if any(keyword in line_lower for keyword in ['total due', 'order total', 'amount due', 'invoice total', 'cannabis > pre-pack flower total']):
                 # Check current line for amounts
                 amount_match = re.search(r'([\d\.,]+)\s*US\$', line)
                 if amount_match:
-                    amount = amount_match.group(1).replace('.', '').replace(',', '.')
+                    amount = amount_match.group(1)
+                    if '.' in amount and ',' in amount:
+                        amount = amount.replace('.', '').replace(',', '.')
+                    elif ',' in amount:
+                        amount = amount.replace(',', '')
                     try:
                         total_due = f"${float(amount):,.2f}"
                         break
@@ -111,15 +122,19 @@ def extract_invoice_data(text):
                 if i+1 < len(lines) and total_due == "Not found":
                     amount_match = re.search(r'([\d\.,]+)\s*US\$', lines[i+1])
                     if amount_match:
-                        amount = amount_match.group(1).replace('.', '').replace(',', '.')
+                        amount = amount_match.group(1)
+                        if '.' in amount and ',' in amount:
+                            amount = amount.replace('.', '').replace(',', '.')
+                        elif ',' in amount:
+                            amount = amount.replace(',', '')
                         try:
                             total_due = f"${float(amount):,.2f}"
                             break
                         except ValueError:
                             pass
 
-    # Customer extraction
-    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:\nLICENSE|\nSHIP TO|\nBATCH)", text, re.IGNORECASE)
+    # Customer extraction - handles both formats
+    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:\nLICENSE|\nSHIP TO|\nBATCH|\nCONTACT)", text, re.IGNORECASE)
     customer = "Not found"
     if customer_match:
         customer = customer_match.group(1).strip()
