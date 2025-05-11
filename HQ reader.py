@@ -42,7 +42,7 @@ def process_image(image):
 
 def extract_state(text, customer):
     """
-    Try to extract a valid US state abbreviation from customer string or OCR text.
+    Try to extract a valid US state abbreviation from customer string or the OCR text.
     """
     state = "Unknown"
     for st_code in US_STATES:
@@ -50,55 +50,60 @@ def extract_state(text, customer):
             state = st_code
             break
 
+    # If the state is not found in the customer string, check the entire OCR text
     if state == "Unknown":
         for st_code in US_STATES:
             if re.search(rf"\b{st_code}\b", text.upper()):
                 state = st_code
                 break
-    
     return state
 
 def extract_invoice_data(text):
     """
     Extract relevant information from OCR'd text using regular expressions and fuzzy matching.
     """
+    # Extract invoice number
     invoice_number = re.search(r"(?:Invoice|Bill)\s*#?\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
     
-    # Update the regex to capture both the date and time in the format: "Abr. 23, 2025 7:14:30 p.m."
+    # Capture the date and time (including time format)
     date_match = re.search(
         r"(Abr\.|May|June|July|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr)[a-z]*\.?\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}\s*(a\.m\.|p\.m\.)",
         text,
         re.IGNORECASE
     )
     
-    total_due_match = re.search(r"(TOTAL DUE|AMOUNT DUE|TOTAL|AMOUNT)\s*[:\s]*\$?(\d+[\.,]?\d*)", text, re.IGNORECASE)
+    # Improved regex for total amount due, covering more variations
+    total_due_match = re.search(r"(TOTAL DUE|AMOUNT DUE|TOTAL|AMOUNT|TOTAL INVOICE|BALANCE DUE|OUTSTANDING)\s*[:\s]*\$?(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)", text, re.IGNORECASE)
     
+    # If regex doesn't find the total, apply fuzzy matching
     total_due = "Not found"
     if total_due_match:
         total_due = f"${total_due_match.group(2)}"
     else:
-        total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT"]
+        # Fuzzy matching on potential phrases like "Total Due", "Amount Due"
+        total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT", "TOTAL INVOICE", "BALANCE DUE", "OUTSTANDING"]
         for phrase in total_due_phrases:
             match_score = fuzz.partial_ratio(phrase.lower(), text.lower())
-            if match_score > 80:  
-                total_due = f"Approx: {phrase}"  
+            if match_score > 80:  # Threshold for fuzzy matching
+                total_due = f"Approx: {phrase}"  # This could be adjusted further to extract the amount
                 break
 
+    # Extract customer information while excluding unwanted phrases
     customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
     customer = "Not found"
     if customer_match:
-        customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())  
+        customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())  # Clean up newlines
         customer = re.sub(r"PAY TO THE ORDER OF N/A", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTINJ PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTHL", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTI Nevada LLC\s*\.\s*N/A", "", customer, flags=re.IGNORECASE)
-        
-        # Remove "GTIHL" from customer data
         customer = re.sub(r"GTIHL", "", customer, flags=re.IGNORECASE)
 
+    # Debugging: Show raw customer data
     st.write(f"**Raw Customer Data:** {customer}")
 
+    # Try to extract a valid US state abbreviation from customer string or the text
     state = extract_state(text, customer)
 
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
@@ -171,6 +176,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
