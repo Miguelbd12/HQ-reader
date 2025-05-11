@@ -77,6 +77,8 @@ def extract_invoice_data(text):
         customer = re.sub(r"GTINJ PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTHL", "", customer, flags=re.IGNORECASE)
+        # Remove the unwanted part: "GTI Nevada LLC . N/A"
+        customer = re.sub(r"GTI Nevada LLC\s*\.\s*N/A", "", customer, flags=re.IGNORECASE)
 
     # Debugging: Show raw customer data
     st.write(f"**Raw Customer Data:** {customer}")
