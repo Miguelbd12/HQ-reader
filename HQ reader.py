@@ -50,48 +50,87 @@ def extract_state(text, customer):
     return state
 
 def extract_invoice_data(text):
-    invoice_number = re.search(r"(?:Invoice\s*(?:No\.?|#)?|Bill\s*#?)\s*[:\-]?\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
+    # Invoice number extraction
+    invoice_number = re.search(r"(?:Invoice\s*#|Draft Invoice\s*#)\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
     
+    # Date extraction
     date_match = re.search(
-        r"(Abr\.|May|June|July|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr)[a-z]*\.?\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}\s*(a\.m\.|p\.m\.)",
+        r"(?:ORDER PLACED DATE|Date)\s*:\s*(.*?\d{1,2}:\d{2}:\d{2}\s*(?:a\.m\.|p\.m\.|AM|PM)?)",
         text,
         re.IGNORECASE
     )
     
-    total_due_match = re.search(r"(TOTAL DUE|AMOUNT DUE|AMOUNT|TOTAL INVOICE|BALANCE DUE|OUTSTANDING)\s*[:\s]*\$?(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)", text, re.IGNORECASE)
-    
+    # Improved total amount detection for this specific format
     total_due = "Not found"
-    if total_due_match:
-        total_due = f"${total_due_match.group(2)}"
-    else:
-        total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT", "TOTAL INVOICE", "BALANCE DUE", "OUTSTANDING"]
-        lines = text.split("\n")
-        for line in lines:
-            for phrase in total_due_phrases:
-                if fuzz.partial_ratio(phrase.lower(), line.lower()) > 85:
-                    amount = re.search(r"\$?\s?(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)", line)
-                    if amount:
-                        total_due = f"${amount.group(1)}"
+    
+    # Look for "ORDER TOTAL" pattern which appears in this invoice
+    order_total_match = re.search(
+        r"ORDER TOTAL\s*:\s*([\d\.,]+)\s*US\$",
+        text,
+        re.IGNORECASE
+    )
+    
+    if order_total_match:
+        amount = order_total_match.group(1).replace('.', '').replace(',', '.')
+        try:
+            total_due = f"${float(amount):,.2f}"
+        except ValueError:
+            pass
+    
+    # Fallback to look for "TOTAL DUE" if "ORDER TOTAL" not found
+    if total_due == "Not found":
+        total_due_match = re.search(
+            r"TOTAL DUE\s*:\s*([\d\.,]+)\s*US\$",
+            text,
+            re.IGNORECASE
+        )
+        if total_due_match:
+            amount = total_due_match.group(1).replace('.', '').replace(',', '.')
+            try:
+                total_due = f"${float(amount):,.2f}"
+            except ValueError:
+                pass
+    
+    # Final fallback - look for amounts near total keywords
+    if total_due == "Not found":
+        lines = text.split('\n')
+        for i, line in enumerate(lines):
+            line_lower = line.lower()
+            if any(keyword in line_lower for keyword in ['total due', 'order total', 'amount due', 'invoice total']):
+                # Check current line for amounts
+                amount_match = re.search(r'([\d\.,]+)\s*US\$', line)
+                if amount_match:
+                    amount = amount_match.group(1).replace('.', '').replace(',', '.')
+                    try:
+                        total_due = f"${float(amount):,.2f}"
                         break
-            if total_due != "Not found":
-                break
+                    except ValueError:
+                        pass
+                
+                # Check next line if current line has no amount
+                if i+1 < len(lines) and total_due == "Not found":
+                    amount_match = re.search(r'([\d\.,]+)\s*US\$', lines[i+1])
+                    if amount_match:
+                        amount = amount_match.group(1).replace('.', '').replace(',', '.')
+                        try:
+                            total_due = f"${float(amount):,.2f}"
+                            break
+                        except ValueError:
+                            pass
 
-    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
+    # Customer extraction
+    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:\nLICENSE|\nSHIP TO|\nBATCH)", text, re.IGNORECASE)
     customer = "Not found"
     if customer_match:
-        customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())
-        customer = re.sub(r"PAY TO THE ORDER OF N/A", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"GTINJ PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"GTHL", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"GTI Nevada LLC\s*\.\s*N/A", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"GTIHL", "", customer, flags=re.IGNORECASE)
-
-    st.write(f"**Raw Customer Data:** {customer}")
+        customer = customer_match.group(1).strip()
+        # Clean up customer name
+        customer = re.sub(r'PAY TO THE ORDER OF.*', '', customer, flags=re.IGNORECASE)
+        customer = re.sub(r'GTI.*', '', customer, flags=re.IGNORECASE)
+        customer = re.sub(r'\s+', ' ', customer).strip()
 
     state = extract_state(text, customer)
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
-    order_date = date_match.group(0).strip() if date_match else "Not found"
+    order_date = date_match.group(1).strip() if date_match else "Not found"
     
     return invoice_number, order_date, customer, state, total_due
 
