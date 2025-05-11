@@ -58,14 +58,21 @@ def extract_invoice_data(text):
         re.IGNORECASE
     )
     
-    # Update regex for Total Due to match the format "1.400,00 uss"
+    # Updated regex for Total Due to match the format "1.400,00 uss"
     total_due_match = re.search(r"(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)\s*uss", text, re.IGNORECASE)
     
     total_due = "Not found"
     if total_due_match:
-        # Clean the total amount by replacing the commas and converting it to float
-        total_due = total_due_match.group(1).replace(",", "")  # Remove commas
-        total_due = f"${total_due}"  # You can adjust the formatting here if necessary
+        # Clean the total amount by removing "uss" and reformatting the number
+        total_amount = total_due_match.group(1)  # "1.400,00"
+        
+        # Remove the periods (thousands separator) and replace the comma with a decimal separator
+        total_amount = total_amount.replace(".", "")  # Remove thousands separator
+        total_amount = total_amount.replace(",", "")  # Remove decimal part (or keep it if needed)
+
+        # Format the amount to include a comma as a thousands separator
+        total_due = "{:,}".format(int(total_amount))  # Convert it to integer and add commas for thousands
+
     else:
         total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT", "TOTAL INVOICE", "BALANCE DUE", "OUTSTANDING"]
         lines = text.split("\n")
@@ -153,6 +160,10 @@ if uploaded_file:
             file_name="invoice_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
