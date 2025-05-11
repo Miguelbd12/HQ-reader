@@ -66,13 +66,15 @@ def extract_invoice_data(text):
         # Clean the total amount by removing "uss" and reformatting the number
         total_amount = total_due_match.group(1)  # "1.400,00"
         
-        # Remove the periods (thousands separator) and replace the comma with a dot for decimal separator
+        # Remove periods (thousands separator) and replace the comma with a dot for decimal separator
         total_amount = total_amount.replace(".", "")  # Remove thousands separator
         total_amount = total_amount.replace(",", ".")  # Replace the comma with a dot for decimal
 
-        # Format the amount to include a comma as a thousands separator and ensure two decimal places
-        total_due = "{:,.2f}".format(float(total_amount))  # Convert it to float and format with commas
-
+        # Check if the total amount is valid and can be converted to float
+        try:
+            total_due = "{:,.2f}".format(float(total_amount))  # Convert it to float and format with commas
+        except ValueError:
+            total_due = "Not found"  # In case the value cannot be converted to a float
     else:
         total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT", "TOTAL INVOICE", "BALANCE DUE", "OUTSTANDING"]
         lines = text.split("\n")
@@ -81,7 +83,10 @@ def extract_invoice_data(text):
                 if fuzz.partial_ratio(phrase.lower(), line.lower()) > 85:
                     amount = re.search(r"\$?\s?(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)", line)
                     if amount:
-                        total_due = f"${amount.group(1)}"
+                        try:
+                            total_due = f"${float(amount.group(1).replace('.', '').replace(',', '.')):,.2f}"
+                        except ValueError:
+                            total_due = "Not found"
                         break
             if total_due != "Not found":
                 break
@@ -100,9 +105,6 @@ def extract_invoice_data(text):
         # Remove "GTIMA" and "GTIIL" from the customer string
         customer = re.sub(r"GTIMA", "", customer, flags=re.IGNORECASE)  # Removing "GTIMA" (case-insensitive)
         customer = re.sub(r"GTIIL", "", customer, flags=re.IGNORECASE)  # Removing "GTIIL" (case-insensitive)
-        
-        # Remove "GTI Nevada LLC . NIA"
-        customer = re.sub(r"GTI Nevada LLC\s*\.\s*NIA", "", customer, flags=re.IGNORECASE)  # Removing the specified text
 
     st.write(f"**Raw Customer Data:** {customer}")
 
