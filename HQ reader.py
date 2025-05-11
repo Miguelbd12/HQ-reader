@@ -47,14 +47,12 @@ def extract_invoice_data(text):
         re.IGNORECASE
     )
 
-    # Updated total due regex to find values ending in US$
     total_due_match = re.search(r"\$?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*US\$", text, re.IGNORECASE)
 
     total_due = "Not found"
     if total_due_match:
         total_due = f"${total_due_match.group(1)}"
     else:
-        # Fuzzy fallback search for amount ending in US$
         total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT"]
         lines = text.splitlines()
         for line in lines:
@@ -77,6 +75,7 @@ def extract_invoice_data(text):
         customer = re.sub(r"PAY TO THE ORDER OF N/A", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"GTINJ PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
         customer = re.sub(r"PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
+        customer = re.sub(r"GTHL", "", customer, flags=re.IGNORECASE)  # Newly added line
 
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
     order_date = date_match.group(0).strip() if date_match else "Not found"
@@ -94,7 +93,6 @@ if uploaded_file:
 
     try:
         pdf_bytes = uploaded_file.read()
-
         images = convert_from_bytes(pdf_bytes)
         full_text = ""
 
@@ -149,6 +147,7 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 
 
 
