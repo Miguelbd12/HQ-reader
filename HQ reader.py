@@ -13,9 +13,9 @@ import pytz
 from datetime import datetime
 
 st.title("📄 Invoice Extractor")
-st.write("Upload an invoice PDF and extract key information.")
+st.write("Upload one or more invoice PDFs and extract key information.")
 
-uploaded_file = st.file_uploader("Choose an invoice PDF", type=["pdf"])
+uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_multiple_files=True)
 
 # List of US state abbreviations
 US_STATES = [
@@ -54,25 +54,15 @@ def extract_state(text, customer):
 def extract_invoice_data(text):
     invoice_number = re.search(r"(?:Invoice\s*(?:No\.?|#)?|Bill\s*#?)\s*[:\-]?\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
     
-    # Using the current date and time for "Order Placed Date" in PST
     pst = pytz.timezone('US/Pacific')
-    order_date = datetime.now(pytz.utc).astimezone(pst).strftime("%Y-%m-%d %H:%M:%S")  # Convert to PST and format as string
-    
-    # Updated regex for Total Due to match the format "1.400,00 uss"
+    order_date = datetime.now(pytz.utc).astimezone(pst).strftime("%Y-%m-%d %H:%M:%S")
+
     total_due_match = re.search(r"(\d{1,3}(?:[.,]?\d{3})*(?:[.,]\d{2})?)\s*uss", text, re.IGNORECASE)
-    
     total_due = "Not found"
     if total_due_match:
-        # Clean the total amount by removing "uss" and reformatting the number
-        total_amount = total_due_match.group(1)  # "1.400,00"
-        
-        # Remove the periods (thousands separator) and replace the comma with a dot for decimal separator
-        total_amount = total_amount.replace(".", "")  # Remove thousands separator
-        total_amount = total_amount.replace(",", ".")  # Replace the comma with a dot for decimal
-
-        # Format the amount to include a comma as a thousands separator and ensure two decimal places
-        total_due = "{:,.2f}".format(float(total_amount))  # Convert it to float and format with commas
-
+        total_amount = total_due_match.group(1)
+        total_amount = total_amount.replace(".", "").replace(",", ".")
+        total_due = "{:,.2f}".format(float(total_amount))
     else:
         total_due_phrases = ["TOTAL DUE", "AMOUNT DUE", "TOTAL", "AMOUNT", "TOTAL INVOICE", "BALANCE DUE", "OUTSTANDING"]
         lines = text.split("\n")
@@ -86,86 +76,77 @@ def extract_invoice_data(text):
             if total_due != "Not found":
                 break
 
-    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO)", text, re.DOTALL | re.IGNORECASE)
+    customer_match = re.search(r"CUSTOMER[\n:]*\s*(.*?)(?:LICENSE|SHIP TO|BILL TO|INVOICE)", text, re.DOTALL | re.IGNORECASE)
     customer = "Not found"
     if customer_match:
         customer = re.sub(r'\n+', ' ', customer_match.group(1).strip())
-        customer = re.sub(r"PAY TO THE ORDER OF N/A", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"GTINJ PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"PAYMENT TERMS", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"GTHL", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"GTI Nevada LLC\s*\.\s*N/A", "", customer, flags=re.IGNORECASE)
-        customer = re.sub(r"GTIHL", "", customer, flags=re.IGNORECASE)
-        
-        # Remove "GTIMA" and "GTIIL" from the customer string
-        customer = re.sub(r"GTIMA", "", customer, flags=re.IGNORECASE)  # Removing "GTIMA" (case-insensitive)
-        customer = re.sub(r"GTIIL", "", customer, flags=re.IGNORECASE)  # Removing "GTIIL" (case-insensitive)
+        customer = re.sub(r"PAY TO THE ORDER OF N/A|GTINJ PAYMENT TERMS|PAYMENT TERMS|GTHL|GTI Nevada LLC\s*\.\s*N/A|GTIHL|GTIMA|GTIIL", "", customer, flags=re.IGNORECASE)
 
     st.write(f"**Raw Customer Data:** {customer}")
 
     state = extract_state(text, customer)
     invoice_number = invoice_number.group(1) if invoice_number else "Not found"
-    
+
     return invoice_number, order_date, customer, state, total_due
 
-if uploaded_file:
-    st.write(f"**Uploaded File:** {uploaded_file.name}")
+if uploaded_files:
+    all_data = []
 
-    try:
-        pdf_bytes = uploaded_file.read()
-        images = convert_from_bytes(pdf_bytes)
-        full_text = ""
+    for uploaded_file in uploaded_files:
+        st.write(f"**Processing File:** {uploaded_file.name}")
+        try:
+            pdf_bytes = uploaded_file.read()
+            images = convert_from_bytes(pdf_bytes)
+            full_text = ""
 
-        st.subheader("📄 Page Preview")
-        st.image(images[0], caption="Page 1", use_column_width=True)
-        processed_image = process_image(images[0])
-        custom_config = r'--oem 3 --psm 6'
-        page_text = pytesseract.image_to_string(processed_image, config=custom_config)
-        full_text += page_text + "\n\n"
+            st.subheader(f"📄 Page Preview - {uploaded_file.name}")
+            st.image(images[0], caption=f"{uploaded_file.name} - Page 1", use_column_width=True)
+            processed_image = process_image(images[0])
+            custom_config = r'--oem 3 --psm 6'
+            page_text = pytesseract.image_to_string(processed_image, config=custom_config)
+            full_text += page_text + "\n\n"
 
-        if len(images) > 1:
-            if st.checkbox("Show and OCR all pages"):
-                for i, image in enumerate(images[1:], start=2):
-                    st.image(image, caption=f"Page {i}", use_column_width=True)
-                    processed_image = process_image(image)
-                    page_text = pytesseract.image_to_string(processed_image, config=custom_config)
-                    full_text += page_text + "\n\n"
+            if len(images) > 1:
+                if st.checkbox(f"Show and OCR all pages for {uploaded_file.name}"):
+                    for i, image in enumerate(images[1:], start=2):
+                        st.image(image, caption=f"{uploaded_file.name} - Page {i}", use_column_width=True)
+                        processed_image = process_image(image)
+                        page_text = pytesseract.image_to_string(processed_image, config=custom_config)
+                        full_text += page_text + "\n\n"
 
-        with st.expander("📝 Show OCR Text (All Pages)"):
-            st.text(full_text)
+            with st.expander(f"📝 Show OCR Text for {uploaded_file.name}"):
+                st.text(full_text)
 
-        invoice_number, order_date, customer, state, total_due = extract_invoice_data(full_text)
+            invoice_number, order_date, customer, state, total_due = extract_invoice_data(full_text)
 
-        st.subheader("🧾 Extracted Invoice Data")
-        st.write(f"**Invoice Number:** {invoice_number}")
-        st.write(f"**Order Placed Date:** {order_date}")
-        st.write(f"**Customer:** {customer}")
-        st.write(f"**State:** {state}")
-        st.write(f"**Total Due:** {total_due}")
+            st.subheader(f"🧾 Extracted Data for {uploaded_file.name}")
+            st.write(f"**Invoice Number:** {invoice_number}")
+            st.write(f"**Order Placed Date:** {order_date}")
+            st.write(f"**Customer:** {customer}")
+            st.write(f"**State:** {state}")
+            st.write(f"**Total Due:** {total_due}")
 
-        data = {
-            "Invoice Number": [invoice_number],
-            "Order Placed Date": [order_date],
-            "Customer": [customer],
-            "State": [state],
-            "Total Due": [total_due]
-        }
-        df = pd.DataFrame(data)
+            all_data.append({
+                "File Name": uploaded_file.name,
+                "Invoice Number": invoice_number,
+                "Order Placed Date": order_date,
+                "Customer": customer,
+                "State": state,
+                "Total Due": total_due
+            })
 
+        except Exception as e:
+            st.error(f"An error occurred with file {uploaded_file.name}: {e}")
+
+    if all_data:
+        df = pd.DataFrame(all_data)
         buffer = BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=False, sheet_name='Invoice Data')
-            writer.close()
 
         st.download_button(
-            label="📥 Download as Excel",
+            label="📥 Download All Invoice Data as Excel",
             data=buffer.getvalue(),
-            file_name="invoice_data.xlsx",
+            file_name="all_invoices.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
-
-
-
