@@ -60,13 +60,15 @@ if uploaded_files:
 
 # Display PDF previews if files exist
 if st.session_state.uploaded_files:
-    for uploaded_file in st.session_state.uploaded_files:
+    for idx, uploaded_file in enumerate(st.session_state.uploaded_files):
         st.write(f"Preview of: {uploaded_file.name}")
         # Display PDF preview
         pdf_reader = PdfReader(uploaded_file)
         first_page = pdf_reader.pages[0]
         text = first_page.extract_text()
-        st.text_area("Text from the first page", text, height=200)
+        
+        # Add a unique key using the index in the loop
+        st.text_area(f"Text from the first page of {uploaded_file.name}", text, height=200, key=f"pdf_text_{idx}")
 
 # Red Run button (above Clear PDFs button)
 run_extraction = st.button("🚀 Run", type="primary")
@@ -82,7 +84,7 @@ def process_image(image):
     gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(blurred, 255,
-                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                    cv2.ADaptive_THRESH_GAUSSIAN_C,
                                     cv2.THRESH_BINARY, 11, 2)
     img_resized = cv2.resize(thresh, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
     return Image.fromarray(img_resized)
