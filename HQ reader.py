@@ -33,13 +33,14 @@ st.markdown("""
     .stButton>button:hover {
         background-color: #218838;  /* Darker green for hover */
     }
-    .stButton.clear-btn>button {
+    /* Styling the Clear button with colorless background */
+    .stButton .clear-btn>button {
         background-color: transparent;  /* Colorless background */
         color: #000;  /* Black text */
         border: 1px solid #ddd;  /* Light border */
         padding: 10px 24px;
     }
-    .stButton.clear-btn>button:hover {
+    .stButton .clear-btn>button:hover {
         background-color: transparent;
         border: 1px solid #ccc;  /* Lighter border on hover */
     }
@@ -56,7 +57,7 @@ US_STATES = ["IL", "MD", "MA", "NV", "NJ", "NY", "OH"]
 run_extraction = st.button("🚀 Run", type="primary")
 
 # Clear button with custom class 'clear-btn'
-if st.button("🧹 Clear PDFs", type="secondary", key="clear_btn"):
+if st.button("🧹 Clear PDFs", key="clear_btn", help="Clear the uploaded PDFs"):
     st.experimental_rerun()
 
 # Helper functions
@@ -160,6 +161,7 @@ if run_extraction and uploaded_files:
             file_name="invoice_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
