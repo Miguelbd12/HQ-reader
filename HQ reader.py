@@ -16,6 +16,28 @@ st.set_page_config(page_title="Invoice Extractor", layout="centered")
 st.title("📄 Invoice Extractor")
 st.write("Upload multiple invoice PDFs and extract key information.")
 
+# Custom CSS for button styles
+st.markdown("""
+    <style>
+        .run-button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .clear-button {
+            background-color: #dc3545;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # Accept multiple PDFs
 uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_multiple_files=True)
 
@@ -82,10 +104,10 @@ def extract_invoice_data(text):
     return invoice_number, order_date, customer.strip(), state, total_due
 
 # Red Clear PDFs button
-if st.button("🧹 Clear PDFs", type="secondary"):
+if st.button("🧹 Clear PDFs", key="clear_button", type="secondary"):
     st.experimental_rerun()
 
-# Green Run button
+# Green Run button with custom styling
 run_extraction = st.button("🚀 Run", key="run_button", type="primary", help="Start the extraction process", use_container_width=True)
 
 if run_extraction and uploaded_files:
@@ -130,3 +152,4 @@ if run_extraction and uploaded_files:
             file_name="invoice_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
