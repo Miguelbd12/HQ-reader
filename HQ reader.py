@@ -47,8 +47,15 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Accept multiple PDFs
-uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_multiple_files=True)
+# Accept multiple PDFs, using session_state to store uploaded files
+if "uploaded_files" not in st.session_state:
+    st.session_state.uploaded_files = []
+
+uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_multiple_files=True, key="file_uploader")
+
+# Update session_state if new files are uploaded
+if uploaded_files:
+    st.session_state.uploaded_files = uploaded_files
 
 # States of interest
 US_STATES = ["IL", "MD", "MA", "NV", "NJ", "NY", "OH"]
@@ -58,7 +65,8 @@ run_extraction = st.button("🚀 Run", type="primary")
 
 # Clear button with custom class 'clear-btn'
 if st.button("🧹 Clear PDFs", key="clear_btn", help="Clear the uploaded PDFs"):
-    st.rerun()  # Use st.rerun() instead of st.experimental_rerun()
+    st.session_state.uploaded_files = []  # Clear the uploaded files
+    st.rerun()  # Trigger rerun to reset the file uploader and other components
 
 # Helper functions
 def process_image(image):
@@ -119,9 +127,9 @@ def extract_invoice_data(text):
 
     return invoice_number, order_date, customer.strip(), state, total_due
 
-if run_extraction and uploaded_files:
+if run_extraction and st.session_state.uploaded_files:
     all_data = []
-    for uploaded_file in uploaded_files:
+    for uploaded_file in st.session_state.uploaded_files:
         try:
             pdf_bytes = uploaded_file.read()
             images = convert_from_bytes(pdf_bytes)
@@ -161,3 +169,4 @@ if run_extraction and uploaded_files:
             file_name="invoice_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
