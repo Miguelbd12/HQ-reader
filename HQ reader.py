@@ -50,33 +50,15 @@ st.markdown("""
 # Accept multiple PDFs
 uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_multiple_files=True)
 
-# Store uploaded files in session state
-if "uploaded_files" not in st.session_state:
-    st.session_state.uploaded_files = []
-
-if uploaded_files:
-    # Store the new uploaded files in session state
-    st.session_state.uploaded_files.extend(uploaded_files)
-
-# Display PDF previews if files exist
-if st.session_state.uploaded_files:
-    for idx, uploaded_file in enumerate(st.session_state.uploaded_files):
-        st.write(f"Preview of: {uploaded_file.name}")
-        # Display PDF preview
-        pdf_reader = PdfReader(uploaded_file)
-        first_page = pdf_reader.pages[0]
-        text = first_page.extract_text()
-        
-        # Add a unique key using the index in the loop
-        st.text_area(f"Text from the first page of {uploaded_file.name}", text, height=200, key=f"pdf_text_{idx}")
+# States of interest
+US_STATES = ["IL", "MD", "MA", "NV", "NJ", "NY", "OH"]
 
 # Red Run button (above Clear PDFs button)
 run_extraction = st.button("🚀 Run", type="primary")
 
 # Clear button with custom class 'clear-btn'
 if st.button("🧹 Clear PDFs", key="clear_btn", help="Clear the uploaded PDFs"):
-    st.session_state.uploaded_files = []  # Clear uploaded files from session state
-    st.experimental_rerun()  # Rerun the app to clear the preview
+    st.experimental_rerun()
 
 # Helper functions
 def process_image(image):
@@ -84,7 +66,7 @@ def process_image(image):
     gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(blurred, 255,
-                                    cv2.ADaptive_THRESH_GAUSSIAN_C,
+                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                     cv2.THRESH_BINARY, 11, 2)
     img_resized = cv2.resize(thresh, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
     return Image.fromarray(img_resized)
@@ -137,9 +119,9 @@ def extract_invoice_data(text):
 
     return invoice_number, order_date, customer.strip(), state, total_due
 
-if run_extraction and st.session_state.uploaded_files:
+if run_extraction and uploaded_files:
     all_data = []
-    for uploaded_file in st.session_state.uploaded_files:
+    for uploaded_file in uploaded_files:
         try:
             pdf_bytes = uploaded_file.read()
             images = convert_from_bytes(pdf_bytes)
@@ -179,6 +161,7 @@ if run_extraction and st.session_state.uploaded_files:
             file_name="invoice_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
