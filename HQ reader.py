@@ -58,7 +58,7 @@ run_extraction = st.button("🚀 Run", type="primary")
 
 # Clear button with custom class 'clear-btn'
 if st.button("🧹 Clear PDFs", key="clear_btn", help="Clear the uploaded PDFs"):
-    st.experimental_rerun()
+    st.rerun()  # Use st.rerun() instead of st.experimental_rerun()
 
 # Helper functions
 def process_image(image):
@@ -161,9 +161,3 @@ if run_extraction and uploaded_files:
             file_name="invoice_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-
-
-
-
-
