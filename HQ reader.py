@@ -50,15 +50,31 @@ st.markdown("""
 # Accept multiple PDFs
 uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_multiple_files=True)
 
-# States of interest
-US_STATES = ["IL", "MD", "MA", "NV", "NJ", "NY", "OH"]
+# Store uploaded files in session state
+if "uploaded_files" not in st.session_state:
+    st.session_state.uploaded_files = []
+
+if uploaded_files:
+    # Store the new uploaded files in session state
+    st.session_state.uploaded_files.extend(uploaded_files)
+
+# Display PDF previews if files exist
+if st.session_state.uploaded_files:
+    for uploaded_file in st.session_state.uploaded_files:
+        st.write(f"Preview of: {uploaded_file.name}")
+        # Display PDF preview
+        pdf_reader = PdfReader(uploaded_file)
+        first_page = pdf_reader.pages[0]
+        text = first_page.extract_text()
+        st.text_area("Text from the first page", text, height=200)
 
 # Red Run button (above Clear PDFs button)
 run_extraction = st.button("🚀 Run", type="primary")
 
 # Clear button with custom class 'clear-btn'
 if st.button("🧹 Clear PDFs", key="clear_btn", help="Clear the uploaded PDFs"):
-    st.experimental_rerun()
+    st.session_state.uploaded_files = []  # Clear uploaded files from session state
+    st.experimental_rerun()  # Rerun the app to clear the preview
 
 # Helper functions
 def process_image(image):
@@ -119,9 +135,9 @@ def extract_invoice_data(text):
 
     return invoice_number, order_date, customer.strip(), state, total_due
 
-if run_extraction and uploaded_files:
+if run_extraction and st.session_state.uploaded_files:
     all_data = []
-    for uploaded_file in uploaded_files:
+    for uploaded_file in st.session_state.uploaded_files:
         try:
             pdf_bytes = uploaded_file.read()
             images = convert_from_bytes(pdf_bytes)
