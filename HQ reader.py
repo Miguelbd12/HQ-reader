@@ -11,62 +11,56 @@ import numpy as np
 from fuzzywuzzy import fuzz
 import pytz
 from datetime import datetime
+import streamlit.components.v1 as components  # ✅ Needed for JS injection
 
 st.set_page_config(page_title="Invoice Extractor", layout="centered")
 st.title("📄 Invoice Extractor")
 st.write("Upload multiple invoice PDFs and extract key information.")
 
-# Custom CSS to make the 'Run' button green and 'Clear PDFs' button colorless
+# Custom CSS for buttons
 st.markdown("""
     <style>
     .stButton>button {
-        background-color: #28a745;  /* Green color */
+        background-color: #28a745;
         color: white;
         border: none;
         padding: 10px 24px;
         text-align: center;
-        text-decoration: none;
-        display: inline-block;
         font-size: 16px;
         border-radius: 4px;
     }
     .stButton>button:hover {
-        background-color: #218838;  /* Darker green for hover */
+        background-color: #218838;
     }
-    /* Styling the Clear button with colorless background */
     .stButton .clear-btn>button {
-        background-color: transparent;  /* Colorless background */
-        color: #000;  /* Black text */
-        border: 1px solid #ddd;  /* Light border */
+        background-color: transparent;
+        color: #000;
+        border: 1px solid #ddd;
         padding: 10px 24px;
     }
     .stButton .clear-btn>button:hover {
         background-color: transparent;
-        border: 1px solid #ccc;  /* Lighter border on hover */
+        border: 1px solid #ccc;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# Accept multiple PDFs, using session_state to store uploaded files
-if "uploaded_files" not in st.session_state:
-    st.session_state.uploaded_files = []
-
-uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_multiple_files=True, key="file_uploader")
-
-# Update session_state if new files are uploaded
-if uploaded_files:
-    st.session_state.uploaded_files = uploaded_files
+# Upload
+uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_multiple_files=True)
 
 # States of interest
 US_STATES = ["IL", "MD", "MA", "NV", "NJ", "NY", "OH"]
 
-# Red Run button (above Clear PDFs button)
+# Run button
 run_extraction = st.button("🚀 Run", type="primary")
 
-# Clear button with custom class 'clear-btn'
+# ✅ Clear button with full page reload
 if st.button("🧹 Clear PDFs", key="clear_btn", help="Clear the uploaded PDFs"):
-    st.session_state.uploaded_files = []  # Clear the uploaded files
-    st.rerun()  # Trigger rerun to reset the file uploader and other components
+    components.html("""
+        <script>
+            window.location.reload();
+        </script>
+        """, height=0)
 
 # Helper functions
 def process_image(image):
@@ -74,24 +68,22 @@ def process_image(image):
     gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(blurred, 255,
-                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                    cv2.THRESH_BINARY, 11, 2)
+                                   cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                   cv2.THRESH_BINARY, 11, 2)
     img_resized = cv2.resize(thresh, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
     return Image.fromarray(img_resized)
 
 def extract_state(text, customer):
-    state = "Unknown"
     for st_code in US_STATES:
         if re.search(rf"\b{st_code}\b", customer.upper()):
             return st_code
     for st_code in US_STATES:
         if re.search(rf"\b{st_code}\b", text.upper()):
             return st_code
-    return state
+    return "Unknown"
 
 def extract_invoice_data(text):
     invoice_number = re.search(r"(?:Invoice\s*(?:No\.?|#)?|Bill\s*#?)\s*[:\-]?\s*([A-Z0-9\-]+)", text, re.IGNORECASE)
-
     pst = pytz.timezone('US/Pacific')
     order_date = datetime.now(pytz.utc).astimezone(pst).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -127,9 +119,10 @@ def extract_invoice_data(text):
 
     return invoice_number, order_date, customer.strip(), state, total_due
 
-if run_extraction and st.session_state.uploaded_files:
+# Extraction logic
+if run_extraction and uploaded_files:
     all_data = []
-    for uploaded_file in st.session_state.uploaded_files:
+    for uploaded_file in uploaded_files:
         try:
             pdf_bytes = uploaded_file.read()
             images = convert_from_bytes(pdf_bytes)
@@ -169,4 +162,5 @@ if run_extraction and st.session_state.uploaded_files:
             file_name="invoice_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
