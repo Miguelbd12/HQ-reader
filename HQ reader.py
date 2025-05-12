@@ -16,6 +16,26 @@ st.set_page_config(page_title="Invoice Extractor", layout="centered")
 st.title("📄 Invoice Extractor")
 st.write("Upload multiple invoice PDFs and extract key information.")
 
+# Custom CSS to make the 'Run' button green
+st.markdown("""
+    <style>
+    .stButton>button {
+        background-color: #28a745;  /* Green color */
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        border-radius: 4px;
+    }
+    .stButton>button:hover {
+        background-color: #218838;  /* Darker green for hover */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # Accept multiple PDFs
 uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_multiple_files=True)
 
