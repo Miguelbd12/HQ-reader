@@ -22,6 +22,9 @@ uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_mu
 # States of interest
 US_STATES = ["IL", "MD", "MA", "NV", "NJ", "NY", "OH"]
 
+# Red Run button (above Clear PDFs button)
+run_extraction = st.button("🚀 Run", type="primary")
+
 # Clean button
 if st.button("🧹 Clear PDFs", type="secondary"):
     st.experimental_rerun()
@@ -85,9 +88,6 @@ def extract_invoice_data(text):
 
     return invoice_number, order_date, customer.strip(), state, total_due
 
-# Red Run button
-run_extraction = st.button("🚀 Run", type="primary")
-
 if run_extraction and uploaded_files:
     all_data = []
     for uploaded_file in uploaded_files:
@@ -130,5 +130,6 @@ if run_extraction and uploaded_files:
             file_name="invoice_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
