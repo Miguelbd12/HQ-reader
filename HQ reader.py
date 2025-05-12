@@ -134,4 +134,25 @@ if run_extraction:
             all_data.append({
                 "Invoice Number": invoice_number,
                 "Order Placed Date": order_date,
-                "Customer": customer
+                "Customer": customer,
+                "State": state,
+                "Total Due": total_due
+            })
+
+        except Exception as e:
+            st.error(f"An error occurred with file {uploaded_file.name}: {e}")
+
+    # Create final Excel
+    if all_data:
+        df = pd.DataFrame(all_data)
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Invoice Data')
+            writer.close()
+
+        st.download_button(
+            label="📥 Download All Invoices as Excel",
+            data=buffer.getvalue(),
+            file_name="invoices_data.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
