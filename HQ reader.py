@@ -11,7 +11,6 @@ import numpy as np
 from fuzzywuzzy import fuzz
 import pytz
 from datetime import datetime
-import streamlit.components.v1 as components  # ✅ Needed for JS injection
 
 st.set_page_config(page_title="Invoice Extractor", layout="centered")
 st.title("📄 Invoice Extractor")
@@ -32,16 +31,6 @@ st.markdown("""
     .stButton>button:hover {
         background-color: #218838;
     }
-    .stButton .clear-btn>button {
-        background-color: transparent;
-        color: #000;
-        border: 1px solid #ddd;
-        padding: 10px 24px;
-    }
-    .stButton .clear-btn>button:hover {
-        background-color: transparent;
-        border: 1px solid #ccc;
-    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -53,14 +42,6 @@ US_STATES = ["IL", "MD", "MA", "NV", "NJ", "NY", "OH"]
 
 # Run button
 run_extraction = st.button("🚀 Run", type="primary")
-
-# ✅ Clear button with full page reload
-if st.button("🧹 Clear PDFs", key="clear_btn", help="Clear the uploaded PDFs"):
-    components.html("""
-        <script>
-            window.location.reload();
-        </script>
-        """, height=0)
 
 # Helper functions
 def process_image(image):
@@ -162,5 +143,6 @@ if run_extraction and uploaded_files:
             file_name="invoice_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
