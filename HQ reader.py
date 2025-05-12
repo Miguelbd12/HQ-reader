@@ -16,7 +16,7 @@ st.set_page_config(page_title="Invoice Extractor", layout="centered")
 st.title("📄 Invoice Extractor")
 st.write("Upload multiple invoice PDFs and extract key information.")
 
-# Custom CSS to make the 'Run' button green
+# Custom CSS to make the 'Run' button green and 'Clear PDFs' button colorless
 st.markdown("""
     <style>
     .stButton>button {
@@ -33,6 +33,16 @@ st.markdown("""
     .stButton>button:hover {
         background-color: #218838;  /* Darker green for hover */
     }
+    .stButton.clear-btn>button {
+        background-color: transparent;  /* Colorless background */
+        color: #000;  /* Black text */
+        border: 1px solid #ddd;  /* Light border */
+        padding: 10px 24px;
+    }
+    .stButton.clear-btn>button:hover {
+        background-color: transparent;
+        border: 1px solid #ccc;  /* Lighter border on hover */
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -45,8 +55,8 @@ US_STATES = ["IL", "MD", "MA", "NV", "NJ", "NY", "OH"]
 # Red Run button (above Clear PDFs button)
 run_extraction = st.button("🚀 Run", type="primary")
 
-# Clean button
-if st.button("🧹 Clear PDFs", type="secondary"):
+# Clear button with custom class 'clear-btn'
+if st.button("🧹 Clear PDFs", type="secondary", key="clear_btn"):
     st.experimental_rerun()
 
 # Helper functions
@@ -150,6 +160,7 @@ if run_extraction and uploaded_files:
             file_name="invoice_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
