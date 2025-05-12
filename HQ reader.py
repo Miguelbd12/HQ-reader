@@ -19,10 +19,7 @@ uploaded_files = st.file_uploader("Choose invoice PDFs", type=["pdf"], accept_mu
 
 # List of US state abbreviations
 US_STATES = [
-    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS",
-    "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY",
-    "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV",
-    "WI", "WY"
+    "IL","MD", "MA","NV", "NJ","NY","OH"
 ]
 
 def process_image(image):
